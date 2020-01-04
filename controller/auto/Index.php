@@ -36,7 +36,7 @@ class Index extends Controller
             $filePath = $modelPath . '/' . $tableName . '.php';
             if (!class_exists('model\\' . $tableName)) {
                 $fields   = array_column($fieldList, 'COLUMN_NAME');
-                $allField = implode("','", $fields);
+                $allField = implode("', '", $fields);
                 $fieldMap = [];
                 foreach ($fields as $key => $value) {
                     $fieldMap[] = "'{$value}' => '{$value}',";
