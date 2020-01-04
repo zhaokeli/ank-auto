@@ -35,8 +35,15 @@ class Index extends Controller
             //判断类是否存在
             $filePath = $modelPath . '/' . $tableName . '.php';
             if (!class_exists('model\\' . $tableName)) {
-
-                $code = <<<eot
+                $fields   = array_column($fieldList, 'COLUMN_NAME');
+                $allField = implode("','", $fields);
+                $fieldMap = [];
+                foreach ($fields as $key => $value) {
+                    $fieldMap[] = "'{$value}' => '{$value}',";
+                }
+                // $fieldMap = implode(PHP_EOL . str_repeat(' ', 8), $fieldMap);
+                $fieldMap = $this->getFormatStr($fieldMap);
+                $code     = <<<eot
 <?php
 namespace model;
 
@@ -49,7 +56,58 @@ use ank\\Model;
  */
 class {$tableName} extends Model
 {
+    /**
+     * 自动添加的字段，如果是键值对,则值就是这个字段的值，
+     * 如果只有一个字段则自动查找set[Field]Attr方法来设置这个字段
+     * @var array
+     */
+    protected \$auto = [];
 
+    //更新时处理
+
+    /**
+     * 添加下面这个方法是为啦方便,因为数据库可以自动过滤post数据添加到数据库,
+     * 添加下面字段能让让模型类在发送到数据库前先自动删除不想让更新或添加的字段,
+     * 比如客户编号,用户uid等字段，后期可以使用场景scene来完成
+     * @var array
+     */
+    protected \$beforeInsertDelete = [];
+
+    //添加时要删除的字段
+    protected \$beforeUpdateDelete = [];
+
+    // 查询字段,如果使用字段映射的话,请使用字段的别名
+    protected \$field = ['{$allField}'];
+
+    protected \$fieldMap = [
+        //格式为 别名(查询)字段=>数据库真实字段
+        {$fieldMap}
+    ];
+
+    /**
+     * 字段风格,把传入的字段转为下面
+     * 0:默认字段，1:转换为下划线风格，2:转换为驼峰风格
+     * @var null
+     */
+    protected \$fieldMode = 0;
+
+    //添加更新时都会处理
+    protected \$insert = [];
+
+    //更新时要删除的字段
+
+    protected \$join = [];
+
+    protected \$limit = '';
+
+    protected \$order = '';
+
+    protected \$tableName = '{$tableName}';
+
+    //添加时处理
+    protected \$update = [];
+
+    protected \$where = [];
 }
 eot;
                 echo $filePath, PHP_EOL;
@@ -60,11 +118,6 @@ eot;
 
             $filePath = $validatePath . '/' . $tableName . '.php';
             if (!class_exists('validate\\' . $tableName)) {
-                $maxlen = 0;
-                foreach ($fieldList as $key => $value) {
-                    $value  = array_change_key_case($value);
-                    $maxlen = strlen($value['column_name']) > $maxlen ? strlen($value['column_name']) : $maxlen;
-                }
                 $valiField = [];
                 $valiMsg   = [];
                 foreach ($fieldList as $key => $value) {
@@ -73,15 +126,14 @@ eot;
                     if ($value['column_key'] === 'PRI') {
                         continue;
                     }
-                    $tvalue      = str_pad("'{$value['column_name']}'", $maxlen + 3, ' ');
                     $ruleInfo    = $this->getFieldRule($value);
-                    $valiField[] = $tvalue . '=> \'' . $ruleInfo['rule'] . '\',' . $this->getFieldComment($value['column_comment']);
+                    $valiField[] = '\'' . $value['column_name'] . '\'=> \'' . $ruleInfo['rule'] . '\',' . $this->getFieldComment($value['column_comment']);
                     if (isset($ruleInfo['msg'])) {
                         $valiMsg = array_merge($valiMsg, $ruleInfo['msg']);
                     }
                 }
-                $valiField = implode(PHP_EOL . str_repeat(' ', 8), $valiField);
-                $valiMsg   = implode(PHP_EOL . str_repeat(' ', 8), $valiMsg);
+                $valiField = $this->getFormatStr($valiField);
+                $valiMsg   = $this->getFormatStr($valiMsg);
                 $code      = <<<eot
 <?php
 namespace validate;
@@ -95,12 +147,14 @@ use ank\\validate;
  */
 class {$tableName} extends Validate
 {
-    protected \$rule = [
-        {$valiField}
-    ];
     protected \$message = [
         {$valiMsg}
     ];
+
+    protected \$rule = [
+        {$valiField}
+    ];
+
 }
 eot;
                 echo $filePath, PHP_EOL;
@@ -144,5 +198,34 @@ eot;
 
         return ['rule' => ''];
 
+    }
+
+    private function getFormatStr($arr)
+    {
+        $maxlen  = 0;
+        $rmaxlen = 0;
+        foreach ($arr as $key => $value) {
+            $tt     = explode('=>', $value);
+            $tem    = strlen(trim($tt[0]));
+            $maxlen = $maxlen > $tem ? $maxlen : $tem;
+
+            $tem     = strlen(trim(explode('//', $tt[1])[0]));
+            $rmaxlen = $rmaxlen > $tem ? $rmaxlen : $tem;
+        }
+        $rearr = [];
+        foreach ($arr as $key => $value) {
+            $tt   = explode('=>', $value);
+            $tem  = trim($tt[0]);
+            $tem  = str_pad($tem, $maxlen, ' ');
+            $arr2 = explode('//', trim($tt[1]));
+            if (isset($arr2[1])) {
+                $rearr[] = $tem . ' => ' . str_pad(trim($arr2[0]), $rmaxlen, ' ') . ' //' . $arr2[1];
+            } else {
+                $rearr[] = $tem . ' => ' . trim($arr2[0]);
+            }
+
+        }
+
+        return implode(PHP_EOL . str_repeat(' ', 8), $rearr);
     }
 }
