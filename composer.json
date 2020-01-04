@@ -1,0 +1,33 @@
+{
+    "name": "ank/auto",
+    "type": "library",
+    "minimum-stability": "dev",
+    "authors": [
+    {
+        "name": "kelicom",
+        "email": "735579768@qq.com"
+    }],
+    "autoload":
+    {
+        "psr-4":
+        {
+            "controller\\": "controller",
+            "model\\": "model",
+            "logic\\": "logic",
+            "widget\\": "widget",
+            "validate\\": "validate",
+            "utils\\": "utils"
+        }
+    },
+    "extra":
+    {
+        "branch-alias":
+        {
+            "dev-master": "1.0.x-dev"
+        }
+    },
+    "require":
+    {
+        "ank/framework": "~1.1",
+    }
+}
