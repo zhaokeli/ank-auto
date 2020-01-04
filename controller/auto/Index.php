@@ -35,14 +35,16 @@ class Index extends Controller
             //判断类是否存在
             $filePath = $modelPath . '/' . $tableName . '.php';
             if (!class_exists('model\\' . $tableName)) {
-                $fields   = array_column($fieldList, 'COLUMN_NAME');
-                $allField = implode("', '", $fields);
+                // $fields   = array_column($fieldList, 'COLUMN_NAME');
+                $allField = [];
                 $fieldMap = [];
-                foreach ($fields as $key => $value) {
-                    $fieldMap[] = "'{$value}' => '{$value}',";
+                foreach ($fieldList as $key => $value) {
+                    $value      = array_change_key_case($value);
+                    $allField[] = "'{$value['column_name']}', " . $this->getFieldComment($value['column_comment']);
+                    $fieldMap[] = "'{$value['column_name']}' => '{$value['column_name']}', " . $this->getFieldComment($value['column_comment']);
                 }
-                // $fieldMap = implode(PHP_EOL . str_repeat(' ', 8), $fieldMap);
                 $fieldMap = $this->getFormatStr($fieldMap);
+                $allField = $this->getFormatField($allField);
                 $code     = <<<eot
 <?php
 namespace model;
@@ -77,7 +79,9 @@ class {$tableName} extends Model
     protected \$beforeUpdateDelete = [];
 
     // 查询字段,如果使用字段映射的话,请使用字段的别名
-    protected \$field = ['{$allField}'];
+    protected \$field = [
+        {$allField}
+    ];
 
     protected \$fieldMap = [
         //格式为 别名(查询)字段=>数据库真实字段
@@ -198,6 +202,28 @@ eot;
 
         return ['rule' => ''];
 
+    }
+
+    private function getFormatField($arr)
+    {
+        $rmaxlen = 0;
+        foreach ($arr as $key => $value) {
+            $tem     = strlen(trim(explode('//', $value)[0]));
+            $rmaxlen = $rmaxlen > $tem ? $rmaxlen : $tem;
+        }
+        $rearr = [];
+        foreach ($arr as $key => $value) {
+            $tt  = explode('//', $value);
+            $tem = trim($tt[0]);
+            $tem = str_pad($tem, $rmaxlen, ' ');
+            if (isset($tt[1])) {
+                $rearr[] = $tem . ' //' . $tt[1];
+            } else {
+                $rearr[] = trim($tem);
+            }
+        }
+
+        return implode(PHP_EOL . str_repeat(' ', 8), $rearr);
     }
 
     private function getFormatStr($arr)
