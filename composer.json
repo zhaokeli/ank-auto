@@ -28,6 +28,6 @@
     },
     "require":
     {
-        "ank/framework": "~1.1"
+        "ank/framework": "^1.1"
     }
 }
